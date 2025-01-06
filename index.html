@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breakout Game</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+
+    canvas {
+      display: none; /* 初期状態で非表示 */
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: url('birthday.png') center/cover no-repeat;
+      border: 2px solid #fff;
+    }
+
+    #startButton {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 30px 60px; /* パディングを大きくしてボタンを広げる */
+  font-size: 30px; /* フォントサイズも大きく */
+  background: linear-gradient(135deg, #ff80bf, #ff66cc);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  border-radius: 25px;
+  box-shadow: 0 8px 15px rgba(255, 105, 180, 0.4);
+  font-weight: bold;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+}
+
+#resetButton {
+  position: absolute;
+  bottom: 40px; /* 画面の下部 */
+  left: 500px; /* 画面の左端 */
+  transform: translate(-50%, -50%);
+  padding: 20px 40px;
+  font-size: 24px;
+  background: linear-gradient(135deg, #ff5e00, #ff8c00); /* オレンジ系のグラデーション */
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  border-radius: 25px;
+  box-shadow: 0 8px 15px rgba(255, 105, 180, 0.4);
+  font-weight: bold;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+  display: none;
+  z-index: 100;
+}
+
+#tudukiButton {
+  position: absolute;
+  bottom: 40px; /* 画面の下部 */
+  right: 300px; /* 画面の左端 */
+  transform: translate(-50%, -50%);
+  padding: 20px 40px;
+  font-size: 24px;
+  background: linear-gradient(135deg, #88aaff, #5e7fff); /* 青系のグラデーション */
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  border-radius: 25px;
+  box-shadow: 0 8px 15px rgba(135, 206, 250, 0.4);
+  font-weight: bold;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+  display: none;
+  z-index: 100;
+}
+
+#victoryVideo {
+  position: absolute;
+  top: 40%; /* 動画の表示位置を下に調整 */
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10; /* 動画を前面に表示 */
+}
+
+  </style>
+</head>
+<body>
+  <video id="victoryVideo" width="800" height="600" controls style="display: none;">
+    <source src="tegami.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
+  <button id="startButton">スタート</button>
+  <button id="tudukiButton">続きから</button>
+  <button id="resetButton">リセット</button>
+  <canvas id="gameCanvas"></canvas>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const startButton = document.getElementById('startButton');
+    const tudukiButton = document.getElementById('tudukiButton');
+    const resetButton = document.getElementById('resetButton');
+    canvas.width = 800;
+    canvas.height = 600;
+
+    // Ball properties
+    let ballX = canvas.width / 2;
+    let ballY = canvas.height - 30;
+    let ballDX = 2;
+    let ballDY = -2;
+    const ballRadius = 10;
+
+    // Paddle properties
+    const paddleHeight = 10;
+    const paddleWidth = 75;
+    let paddleX = (canvas.width - paddleWidth) / 2;
+    let rightPressed = false;
+    let leftPressed = false;
+
+    // Brick properties
+    const brickRowCount = 19;
+    const brickColumnCount = 8;
+    const brickWidth = 61;
+    const brickHeight = 15;
+    const brickPadding = 1.5;
+    const brickOffsetTop = 145;
+    const brickOffsetLeft = 162;
+
+    let bricks = [];
+    for (let c = 0; c < brickColumnCount; c++) {
+      bricks[c] = [];
+      for (let r = 0; r < brickRowCount; r++) {
+        bricks[c][r] = { x: 0, y: 0, status: 1 }; // 1 means not broken
+      }
+    }
+
+// Draw the ball (可愛いピンク色でラメ風)
+function drawBall() {
+  ctx.beginPath();
+  ctx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
+
+  // ピンクとラメをイメージしたグラデーション
+  const gradient = ctx.createRadialGradient(ballX, ballY, 0, ballX, ballY, ballRadius);
+  gradient.addColorStop(0.5, '#ff66cc'); // ピンク
+  gradient.addColorStop(1, '#9b66ff'); // 紫
+
+  ctx.fillStyle = gradient;
+  
+  ctx.fill();
+  ctx.closePath();
+}
+
+function drawPaddle() {
+    ctx.beginPath();
+    ctx.rect(paddleX, canvas.height - paddleHeight, paddleWidth, paddleHeight);
+    ctx.fillStyle = '#ff66cc';  // 塗りつぶしの色（ピンク）
+    ctx.strokeStyle = '#9b66ff'; // 枠線の色（紫）
+    ctx.lineWidth = 5; // 枠線の太さ
+    ctx.fill();  // 塗りつぶし
+    ctx.stroke(); // 枠線を描画
+    ctx.closePath();
+}
+    // Draw the bricks
+    function drawBricks() {
+      for (let c = 0; c < brickColumnCount; c++) {
+        for (let r = 0; r < brickRowCount; r++) {
+          if (bricks[c][r].status === 1) {
+            const brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
+            const brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
+            bricks[c][r].x = brickX;
+            bricks[c][r].y = brickY;
+            ctx.beginPath();
+            ctx.rect(brickX, brickY, brickWidth, brickHeight);
+            ctx.fillStyle = `rgb(${255 - c * 30}, ${r * 50}, 150)`; // 色を列・行で変化させる
+            ctx.fill();
+            ctx.closePath();
+          }
+        }
+      }
+    }
+
+    function checkGameClear() {
+      let allCleared = true;
+      for (let c = 0; c < brickColumnCount; c++) {
+        for (let r = 0; r < brickRowCount; r++) {
+          if (bricks[c][r].status === 1) {
+            allCleared = false;
+            break;
+          }
+        }
+      }
+      if (allCleared) {
+        cancelAnimationFrame(animationFrameId); // ゲームループを停止
+        canvas.style.display = 'none'; // ゲーム画面を非表示
+        tudukiButton.style.display = 'none'; // 
+        resetButton.style.display = 'none'; 
+        victoryVideo.style.display = 'block'; // 動画を表示
+        victoryVideo.play(); // 動画を再生
+      }
+    }
+
+    // 動画再生中のボタン非表示処理
+victoryVideo.addEventListener('play', () => {
+  tudukiButton.style.display = 'none'; // 続きボタンを非表示
+  resetButton.style.display = 'none'; // リセットボタンを非表示
+});
+        // 動画再生終了後の処理
+        victoryVideo.addEventListener('ended', () => {
+          tudukiButton.style.display = 'none'; // 
+          resetButton.style.display = 'block'; // 
+        return;
+        });
+
+    // Collision detection
+    function collisionDetection() {
+      for (let c = 0; c < brickColumnCount; c++) {
+        for (let r = 0; r < brickRowCount; r++) {
+          const b = bricks[c][r];
+          if (b.status === 1) {
+            if (
+              ballX > b.x &&
+              ballX < b.x + brickWidth &&
+              ballY > b.y &&
+              ballY < b.y + brickHeight
+            ) {
+              ballDY = -ballDY;
+              b.status = 0; // Mark brick as broken
+
+              
+            }
+          }
+        }
+      }
+      checkGameClear(); // ゲームクリア条件をチェック
+    }
+
+    // Draw the game
+    let animationFrameId;
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawBricks();
+      drawBall();
+      drawPaddle();
+      collisionDetection();
+
+      // Ball movement
+      ballX += ballDX;
+      ballY += ballDY;
+      if (ballX + ballDX > canvas.width - ballRadius || ballX + ballDX < ballRadius) {
+        ballDX = -ballDX;
+      }
+      if (ballY + ballDY < ballRadius) {
+        ballDY = -ballDY;
+      } else if (ballY + ballDY > canvas.height - ballRadius) {
+        if (ballX > paddleX && ballX < paddleX + paddleWidth) {
+          ballDY = -ballDY;
+        } else {
+          if (!victoryVideo.style.display || victoryVideo.style.display === 'none') {
+      tudukiButton.style.display = 'block'; // 続きボタンを表示
+      resetButton.style.display = 'block'; // リセットボタンを表示
+    }
+    cancelAnimationFrame(animationFrameId); // ゲームの描画を停止
+    return;
+  }
+}
+
+      // Paddle movement
+      if (rightPressed && paddleX < canvas.width - paddleWidth) {
+        paddleX += 7;
+      } else if (leftPressed && paddleX > 0) {
+        paddleX -= 7;
+      }
+
+      animationFrameId = requestAnimationFrame(draw);
+    }
+
+    // Event listeners for paddle control
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Right" || e.key === "ArrowRight") {
+        rightPressed = true;
+      } else if (e.key === "Left" || e.key === "ArrowLeft") {
+        leftPressed = true;
+      }
+    });
+
+    document.addEventListener("keyup", (e) => {
+      if (e.key === "Right" || e.key === "ArrowRight") {
+        rightPressed = false;
+      } else if (e.key === "Left" || e.key === "ArrowLeft") {
+        leftPressed = false;
+      }
+    });
+
+    // Start game on button click
+      startButton.addEventListener('click', () => {
+      startButton.style.display = 'none'; // ボタンを非表示
+      canvas.style.display = 'block';    // キャンバスを表示
+      draw();
+    });
+
+    tudukiButton.addEventListener('click', () => {
+    // 初期状態にリセット
+    ballX = canvas.width / 2;
+    ballY = canvas.height - 30;
+    ballDX = 2;
+    ballDY = -2;
+
+    paddleX = (canvas.width - paddleWidth) / 2;
+    tudukiButton.style.display = 'none'; 
+    resetButton.style.display = 'none'; // リセットボタンを非表示にする
+    canvas.style.display = 'block'; // キャンバスを表示
+    draw(); // ゲームの描画を再開
+    });
+
+    resetButton.addEventListener('click', () => {
+    document.location.reload(); // ページをリロードしてゲームをリセット
+    });
+  </script>
+</body>
+</html>
