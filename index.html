@@ -143,6 +143,30 @@
       }
     }
 
+    window.onload = function() {
+    const message = "←と→で動かしてね。\nスペースキーでボールが発射されるよ！";
+    const startMessage = document.createElement('div');
+    startMessage.id = 'startMessage';
+    startMessage.textContent = message;
+    startMessage.style.position = 'absolute';
+    startMessage.style.top = '50%';
+    startMessage.style.left = '50%';
+    startMessage.style.transform = 'translate(-50%, -50%)';
+    startMessage.style.fontSize = '24px';
+    startMessage.style.color = 'white';
+    startMessage.style.textAlign = 'center';
+    startMessage.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    startMessage.style.padding = '20px';
+    startMessage.style.borderRadius = '10px';
+    document.body.appendChild(startMessage);
+
+        // 5秒後にメッセージを消し、ゲーム開始ボタンを表示
+        setTimeout(function() {
+        startMessage.style.display = 'none';
+        document.getElementById('startButton').style.display = 'block';  // ゲーム開始ボタンを表示
+    }, 5000);  // 5秒後にメッセージを消す
+};
+
 // Draw the ball (可愛いピンク色でラメ風)
 function drawBall() {
   ctx.beginPath();
@@ -308,18 +332,62 @@ victoryVideo.addEventListener('play', () => {
     });
 
     tudukiButton.addEventListener('click', () => {
-    // 初期状態にリセット
-    ballX = canvas.width / 2;
-    ballY = canvas.height - 30;
-    ballDX = 2;
-    ballDY = -2;
+  // 初期状態にリセット
+  ballX = paddleX + paddleWidth / 2; // ボールをパドルの中央に配置
+  ballY = canvas.height - paddleHeight - ballRadius; // ボールをパドルの上に配置
+  ballDX = 0; // 初期状態ではボールを動かさない
+  ballDY = 0;
 
-    paddleX = (canvas.width - paddleWidth) / 2;
-    tudukiButton.style.display = 'none'; 
-    resetButton.style.display = 'none'; // リセットボタンを非表示にする
-    canvas.style.display = 'block'; // キャンバスを表示
-    draw(); // ゲームの描画を再開
-    });
+  tudukiButton.style.display = 'none';
+  resetButton.style.display = 'none'; // リセットボタンを非表示にする
+  canvas.style.display = 'block'; // キャンバスを表示
+
+  let isPositioning = true; // ボール配置モードのフラグ
+
+  function drawPositioning() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBricks();
+    drawPaddle();
+    
+    // ボールを描画
+    drawBall();
+
+    // 配置モード中なら、アニメーションを続ける
+    if (isPositioning) {
+      requestAnimationFrame(drawPositioning);
+    }
+  }
+
+  // パドルを動かすときにボールも一緒に動かす
+  document.addEventListener("keydown", (e) => {
+    if (isPositioning) {
+      if (e.key === "Right" || e.key === "ArrowRight") {
+        if (paddleX < canvas.width - paddleWidth) {
+          paddleX += 7;
+          ballX = paddleX + paddleWidth / 2; // ボールも連動して動く
+        }
+      } else if (e.key === "Left" || e.key === "ArrowLeft") {
+        if (paddleX > 0) {
+          paddleX -= 7;
+          ballX = paddleX + paddleWidth / 2; // ボールも連動して動く
+        }
+      }
+    }
+  });
+
+  // スペースキーでゲームを再開
+  document.addEventListener("keydown", (e) => {
+    if (isPositioning && e.key === " ") {
+      isPositioning = false; // 配置モードを終了
+      ballDX = 2; // ボールの動きを再開
+      ballDY = -2;
+      draw(); // ゲームを再開
+    }
+  });
+
+  // ボール配置モードを開始
+  drawPositioning();
+});
 
     resetButton.addEventListener('click', () => {
     document.location.reload(); // ページをリロードしてゲームをリセット
